@@ -21,7 +21,21 @@ app.get('/', (req, res) => {
 });
 
 // Keep existing raw WebSocket logic for Advance Rooms
-const wss = new WebSocket.Server({ server });
+// We pass 'noServer: true' to prevent collisions with PeerJS!
+const wss = new WebSocket.Server({ noServer: true });
+
+// Traffic Cop: Manually route WebSocket upgrades 
+server.on('upgrade', (request, socket, head) => {
+    // If the request is for PeerJS, let ExpressPeerServer handle it silently
+    if (request.url.startsWith('/peerjs')) {
+        return;
+    }
+
+    // Otherwise, route it to our custom Voice Rooms WebSocket server
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+    });
+});
 
 // Map of roomId -> Map of userId -> { ws, state }
 const rooms = new Map();
